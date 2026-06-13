@@ -17,13 +17,17 @@ class PortServer(
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
     
-    fun start(onStarted: () -> Unit = {}) {
+    fun start(onTransition: (Boolean) -> Unit = {}) {
         thread {
             try {
-                transport.runTransport(assetsCacheDir, clientId, port)
+                transport.runTransport(assetsCacheDir, clientId, port) {
+                    onTransition(true)
+                }
             } catch (e: IOException) {
                 if (isRunning) {
                     Log.e("PortServer", "Server error: ${e.message}")
+                    onTransition(false)
+                    // TODO вызвать DOWN
                 }
             }
         }

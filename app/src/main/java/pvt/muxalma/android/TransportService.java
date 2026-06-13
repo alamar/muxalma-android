@@ -9,7 +9,7 @@ public interface TransportService {
 
     void prepare(Context context, File workDir);
 
-    void runTransport(File workDir, UUID clientId, int port) throws Exception;
+    void runTransport(File workDir, UUID clientId, int port, Runnable onStarted) throws Exception;
 
     void terminate(File workDir) throws Exception;
 }

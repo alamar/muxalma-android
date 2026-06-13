@@ -1,9 +1,12 @@
 package pvt.muxalma.android
 
+import android.app.ActivityManager
+import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.SharedPreferences
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -13,14 +16,16 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.IOException
 import java.net.ServerSocket
 import java.util.UUID
-import java.util.UUID.randomUUID
+
 
 class MainActivity : AppCompatActivity() {
     
     private lateinit var portTextView: TextView
+    private lateinit var statusButton: Button
     private lateinit var closeButton: Button
     private var currentPort: Int = -1
     private var clientId: String = ""
@@ -28,12 +33,70 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
     }
-    
+
+    private val serviceStateReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent) {
+            val state = intent.getIntExtra(PortService.EXTRA_SERVICE_STATE, -1)
+            if (state == PortService.STATE_UP) {
+                updateButtonColor(true)
+            } else if (state == PortService.STATE_DOWN) {
+                updateButtonColor(false)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Регистрируем слушатель
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(
+                serviceStateReceiver,
+                IntentFilter(PortService.ACTION_SERVICE_STATE)
+            )
+
+
+        // Проверяем текущее состояние сервиса при открытии Activity
+        checkServiceState()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Отписываемся, чтобы не было утечек памяти
+        LocalBroadcastManager.getInstance(this)
+            .unregisterReceiver(serviceStateReceiver)
+    }
+
+    private fun checkServiceState() {
+        val isRunning = isServiceRunning(PortService::class.java)
+        updateButtonColor(isRunning)
+    }
+
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        for (service in manager.getRunningServices(Int.Companion.MAX_VALUE)) {
+            if (serviceClass.getName() == service.service.getClassName()) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun updateButtonColor(isRunning: Boolean) {
+        if (isRunning) {
+            statusButton.text = "✔"
+            statusButton.setBackgroundColor(ContextCompat.getColor(this, R.color.traffic_green))
+        } else {
+            statusButton.text = "◯"
+            statusButton.setBackgroundColor(ContextCompat.getColor(this, R.color.traffic_yellow))
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
         portTextView = findViewById(R.id.portTextView)
+        statusButton = findViewById(R.id.statusButton)
         closeButton = findViewById(R.id.closeButton)
         
         checkAndRequestPermissions()
@@ -98,6 +161,12 @@ class MainActivity : AppCompatActivity() {
             PortService.stop(this)
             finishAffinity()
         }
+
+        // Кнопка статуса
+        statusButton.setOnClickListener {
+            // TODO жёлтая должна другое делать
+            moveTaskToBack(true)
+        }
     }
     
     private fun findFreePort(): Int {
@@ -121,7 +190,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun copyToClipboard(text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Localhost Address", text)
+        val clip = ClipData.newPlainText("Адрес HTTP-прокси", text)
         clipboard.setPrimaryClip(clip)
     }
 }

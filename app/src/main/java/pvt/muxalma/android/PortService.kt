@@ -1,13 +1,18 @@
 package pvt.muxalma.android
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.File
 import java.util.ServiceLoader
 import java.util.UUID
@@ -26,6 +31,12 @@ class PortService : Service() {
         private const val PREFS_NAME = "port_prefs"
         private const val KEY_PORT = "proxy_port"
         private const val CLIENT_ID_PORT = "client_id"
+
+        const val ACTION_SERVICE_STATE: String = "pvt.muxalma.android.PORT_SERVICE"
+        const val EXTRA_SERVICE_STATE: String = "service-state"
+        const val STATE_UP: Int = 1
+
+        const val STATE_DOWN: Int = 2
         
         fun start(context: Context, port: Int, clientId: String) {
             val intent = Intent(context, PortService::class.java).apply {
@@ -64,6 +75,12 @@ class PortService : Service() {
             prefs.edit().putString(CLIENT_ID_PORT, clientId).apply()
         }
     }
+
+    private fun notifyActivity(state: Int) {
+        val intent = Intent(ACTION_SERVICE_STATE)
+        intent.putExtra(EXTRA_SERVICE_STATE, state)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+    }
     
     override fun onCreate() {
         super.onCreate()
@@ -100,16 +117,30 @@ class PortService : Service() {
         
         startForeground(NOTIFICATION_ID, buildNotification())
 
+        if (transport == null) {
+            Toast.makeText(applicationContext, "Отсутствует транспорт для подключения!", Toast.LENGTH_LONG).show()
+            return START_NOT_STICKY
+        }
+
         portServer = PortServer(transport!!, currentPort, UUID.fromString(clientId), assetsCacheDir)
-        portServer?.start()
+        portServer?.start { result ->
+            notifyActivity(if (result) STATE_UP else STATE_DOWN)
+        }
         
         return START_STICKY
+    }
+
+    fun isActive(): Boolean {
+        if (portServer == null)
+            return false
+        return portServer!!.isActive()
     }
     
     override fun onBind(intent: Intent?): IBinder? = null
     
     override fun onDestroy() {
         portServer?.stop()
+        notifyActivity(STATE_DOWN)
         super.onDestroy()
     }
     
