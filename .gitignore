@@ -38,3 +38,10 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+## Actual rules ##
+local.properties
+*.pem
+*.p12
+*.jks
+app/src/main/java/pvt/muxalma/android/impl/*

@@ -3,9 +3,8 @@ package pvt.muxalma.android
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
@@ -16,12 +15,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.IOException
 import java.net.ServerSocket
+import java.util.UUID
+import java.util.UUID.randomUUID
 
 class MainActivity : AppCompatActivity() {
     
     private lateinit var portTextView: TextView
     private lateinit var closeButton: Button
     private var currentPort: Int = -1
+    private var clientId: String = ""
     
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
@@ -67,17 +69,19 @@ class MainActivity : AppCompatActivity() {
     
     private fun initializeApp() {
         currentPort = PortService.getSavedPort(this)
+        clientId = PortService.getSavedClientId(this)
         
-        if (currentPort == -1) {
+        if (currentPort == -1 || clientId.isEmpty()) {
             // Первый запуск - генерируем UUID и порт
-            val clientId = ClientUUID.getUUID(this)
             currentPort = findFreePort()
+            clientId = UUID.randomUUID().toString()
             PortService.savePort(this, currentPort)
+            PortService.saveClientId(this, clientId)
             android.util.Log.i("MainActivity", "Client UUID: $clientId, Port: $currentPort")
         }
         
         // Запускаем сервис
-        PortService.start(this, currentPort)
+        PortService.start(this, currentPort, clientId)
         
         // Показываем адрес
         val localAddress = "localhost:$currentPort"

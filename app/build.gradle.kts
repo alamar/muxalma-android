@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "pvt.muxalma.android"
-        minSdk = 23
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -30,6 +30,21 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    packaging {
+        resources.excludes.addAll(
+            listOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/io.netty.versions.properties"
+            )
+        )
+    }
+
+    sourceSets {
+        getByName("main") {
+            resources.srcDir("src/main/serviceManifests")
+        }
+    }
 }
 
 dependencies {
@@ -38,4 +53,5 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
+    //implementation("pvt.muxalma.impl:your-transport:1.0-SNAPSHOT")
 }
